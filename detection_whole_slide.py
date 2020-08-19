@@ -4,7 +4,7 @@ from models.res import VOCA_Res
 import torch
 from torchvision import transforms
 import time
-from Dataset_classes import LymphocytesTestImage
+from Dataset_classes import TestImageDataset
 import openslide
 from SlideTileExtractor import extract_tissue
 import math
@@ -113,7 +113,7 @@ def main():
         image = image[:, :, :3]
         image = image.astype(float)
 
-        image_datasets = LymphocytesTestImage(image, args.grid_size, args.input_size, data_transforms)
+        image_datasets = TestImageDataset(image, args.grid_size, args.input_size, data_transforms)
 
         dataloaders = torch.utils.data.DataLoader(image_datasets, batch_size=36, shuffle=True, num_workers=10)
 
@@ -165,9 +165,7 @@ def main():
                                                                                  max(int(coords[1]) - 2, 0):min(
                                                                                      int(coords[1]) + 3,
                                                                                      voca_map_batch.shape[-1])].sum()
-            # normalize suppression_mask
-            # minval = suppression_mask_batch.min(-2, keepdim=True)[0].min(-1, keepdim=True)[0]
-            # maxval = suppression_mask_batch.max(-2, keepdim=True)[0].max(-1, keepdim=True)[0]
+
             minval = 0.0
             maxval = math.pi * args.r * args.r
             suppression_mask_batch -= minval

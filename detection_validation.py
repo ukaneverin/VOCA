@@ -1,15 +1,15 @@
 import numpy as np
-from imageio import imread,imsave
+from imageio import imread
 import glob
 import os
 from models.res import VOCA_Res
 import torch
 from torchvision import transforms
 from utils import non_max_suppression, remove_non_assigned, calc_f1
-from Dataset_classes import LymphocytesTestImage
+from Dataset_classes import TestImageDataset
 import math
 import argparse
-from pdb import set_trace
+
 parser = argparse.ArgumentParser(description='VOCA testing')
 parser.add_argument('--dataset', default='lung_tt', type=str, help='lung_tt(which means til+tumor), lung_til, breast_til')
 parser.add_argument('--output_path', default='/lila/data/fuchs/xiec/results/VOCA', type=str, help='working directory')
@@ -80,13 +80,13 @@ def main():
         for image_name in val_set_list:
             processed_images.append(image_name)
             image_file = os.path.join(args.output_path, args.dataset, 'images/', image_name)
-            image =  imread(image_file)
+            image = imread(image_file)
             image = image[:,:,:3]
             image = image.astype(float)
 
             gt_map = np.load(os.path.join(args.output_path, args.dataset, 'gt_map/', '%s.npy' % image_name))
             gt_map_all[image_name_all.index(image_name)] = torch.FloatTensor(gt_map).permute(2,0,1)
-            image_datasets = LymphocytesTestImage(image, args.grid_size, args.input_size, data_transforms)
+            image_datasets = TestImageDataset(image, args.grid_size, args.input_size, data_transforms)
 
             dataloaders = torch.utils.data.DataLoader(image_datasets, batch_size=36, shuffle=True, num_workers=6)
 
@@ -120,7 +120,6 @@ def main():
                         valid_location_index = (x > 0) * (x < voca_map_batch.shape[-1]) * (y > 0) * (y < voca_map_batch.shape[-2])
                         x = x[valid_location_index]
                         y = y[valid_location_index]
-                        # voca_map[n, c, y, x] += weighted_confidence_map[n, c, y, x].detach().cpu().numpy()
                         np.add.at(voca_map_batch[n, c], (y, x), weighted_confidence_map[n, c, y, x].detach().cpu().numpy())
 
                 # nms on the map

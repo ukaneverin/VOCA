@@ -28,8 +28,8 @@ global args
 args = parser.parse_args()
 
 
-val_save_path = os.path.join(args.output_path, args.dataset, 'val_results_%s_%s_r%s_lr%s_%s/' %
-                                 (args.model, args.loss, args.r, args.lr, args.metric))
+val_save_path = os.path.join(args.output_path, args.dataset, 'val_results_r%s_lr%s_%s/' %
+                                 (args.r, args.lr, args.metric))
 
 #get the list of all images
 image_name_all = []

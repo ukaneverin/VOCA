@@ -4,10 +4,10 @@ import itertools
 from imageio import imread
 from scipy.misc import toimage
 import numpy as np
-from pdb import set_trace
-class LymphocytesTestImage(Dataset):
+
+class TestImageDataset(Dataset):
     """
-    The dataset to load grid patches of a test image
+    The dataset to load grid patches of ONE test image
     """
     def __init__(self, image, grid_size=127, crop_size=127, transform=None):
         """
@@ -45,18 +45,11 @@ class LymphocytesTestImage(Dataset):
 
         return sample
 
-class LymphocytesTrainImage(Dataset):
+class TrainImagesDataset(Dataset):
     """
     The dataset to load grid patches of train images
     """
     def __init__(self, image_folder, map_folder, gt_folder, split_folder, cv, crop_size, r, phase, transform=None):
-        """
-        Args:
-            image_folder: folder of image names in training data
-            crop_size: the size of patches
-            transform (callable, optional): Optional transform to be applied
-                on patches.
-        """
         with open(os.path.join(split_folder, 'CV_%s_%s.csv' % (cv, phase)), 'r') as f:
             train_image_list = [line.strip() for line in f]
         orignal_images = {}; task_maps = {}; gt_maps = {}

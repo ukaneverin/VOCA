@@ -281,11 +281,3 @@ def plot_extraction(slide, patch_size=224, mpp=0.5, power=None, min_cc_size=10, 
 		plt.savefig(save)
 	else:
 		plt.show()
-
-# kernel=np.ones((5,5),np.uint8)
-# cimg=cv2.morphologyEx(th2, cv2.MORPH_OPEN, kernel)
-
-# out=[]
-# for tup in grid:
-#    out.append(sum([1 if x==tup else 0 for x in grid]))
-# np.unique(np.array(out))

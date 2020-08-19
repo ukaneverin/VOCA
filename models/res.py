@@ -1,5 +1,4 @@
 '''ResNet in PyTorch.
-For Pre-activation ResNet, see 'preact_resnet.py'.
 Reference:
 [1] Kaiming He, Xiangyu Zhang, Shaoqing Ren, Jian Sun
     Deep Residual Learning for Image Recognition. arXiv:1512.03385
@@ -7,8 +6,6 @@ Reference:
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.autograd import Variable
-from pdb import set_trace
 
 class BasicBlock(nn.Module):
     expansion = 1
@@ -145,28 +142,9 @@ class ResNet(nn.Module):
 
         t = self.thresholder(torch.cat((h1,h2),1).view(h1.size(0),-1))
 
-        return cls_map, reg_map, qtf_map, t, out
+        return cls_map, reg_map, qtf_map, t
 
 
-def ResNet18():
+def VOCA_Res():
     return ResNet(BasicBlock, [3,4,6,3,3,6,4,3])
 
-def ResNet34():
-    return ResNet(BasicBlock, [3,4,6,3])
-
-def ResNet50():
-    return ResNet(Bottleneck, [3,4,6,3])
-
-def ResNet101():
-    return ResNet(Bottleneck, [3,4,23,3])
-
-def ResNet152():
-    return ResNet(Bottleneck, [3,8,36,3])
-
-
-def test():
-    net = ResNet18()
-    y = net(Variable(torch.randn(1,3,32,32)))
-    print(y.size())
-
-# test()
