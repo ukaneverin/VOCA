@@ -2,16 +2,11 @@ import numpy as np
 from imageio import imread,imsave
 import glob
 import os
-from models import * #models defined
+from models.res import VOCA_Res
 import torch
-from torch.autograd import Variable
 from torchvision import transforms
-import time
-from scipy.optimize import linear_sum_assignment as lsa
-from scipy.spatial.distance import cdist
+from utils import non_max_suppression, remove_non_assigned, calc_f1
 from Dataset_classes import LymphocytesTestImage
-from skimage.util import invert
-from skimage import img_as_ubyte
 import math
 import argparse
 from pdb import set_trace
@@ -40,8 +35,8 @@ def main():
     global device
     args = parser.parse_args()
 
-    val_save_path = os.path.join(args.output_path, args.dataset, 'val_results_%s_%s_r%s_lr%s_%s/' %
-                                 (args.model, args.loss, args.r, args.lr, args.metric))
+    val_save_path = os.path.join(args.output_path, args.dataset, 'val_results_r%s_lr%s_%s/' %
+                                 (args.r, args.lr, args.metric))
     if not os.path.exists(val_save_path):
         os.makedirs(val_save_path)
     if not os.path.exists(os.path.join(val_save_path, 'voca_map')):
@@ -70,22 +65,12 @@ def main():
 
         # get device and load best model for eval
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        if args.model == 'vgg':
-            model = cell_vgg_cls_reg('config2').to(device)
-        elif args.model == 'vggsplit':
-            model = cell_vgg_cls_reg_split('config2').to(device)
-        elif args.model == 'vggsub':
-            model = cell_vgg_cls_reg_sub('config2').to(device)
-        elif args.model == 'vggskip':
-            model = cell_vgg_cls_skip('config2').to(device)
-        elif args.model == 'res':
-            model = ResNet18().to(device)
-        elif args.model == 'dense':
-            model = DenseNet121().to(device)
+        model = VOCA_Res().to(device)
+
 
         model_directory = os.path.join(args.output_path, args.dataset, 'trained_models/')
-        model.load_state_dict(torch.load(model_directory+'%s_%s_r%s_lr%s_%s_cv%s.pth' %
-                                         (args.model, args.loss, args.r, args.lr, args.metric, cv)))
+        model.load_state_dict(torch.load(model_directory+'r%s_lr%s_%s_cv%s.pth' %
+                                         (args.r, args.lr, args.metric, cv)))
         model.eval()
 
         with open(os.path.join(args.output_path, args.dataset, 'split/CV_%s_val.csv' % cv), 'r') as f:
@@ -155,9 +140,6 @@ def main():
                                                                                      max(int(coords[1]) - 2, 0):min(
                                                                                          int(coords[1]) + 3,
                                                                                          voca_map_batch.shape[-1])].sum()
-                # normalize suppression_mask
-                # minval = suppression_mask_batch.min(-2, keepdim=True)[0].min(-1, keepdim=True)[0]
-                # maxval = suppression_mask_batch.max(-2, keepdim=True)[0].max(-1, keepdim=True)[0]
                 minval = 0.0
                 maxval = math.pi * args.r * args.r
                 suppression_mask_batch -= minval
@@ -180,27 +162,15 @@ def main():
                     suppression_mask[:, y:y + args.input_size, x:x + args.input_size] = \
                         suppression_mask_batch[n].detach().cpu()
 
-
-            if args.vis:
-                for c in range(args.num_classes):
-                    imsave(val_save_path+'voca_map/%s_voca_map_%s.png' % (image_name, c), voca_map[c])
-                    imsave(val_save_path+'voca_map/%s_trans_x_%s.png' % (image_name, c), trans_map_x[c])
-                    imsave(val_save_path+'voca_map/%s_trans_y_%s.png' % (image_name, c), trans_map_y[c])
-                    imsave(val_save_path+'voca_map/%s_wt_map_%s.png' % (image_name, c), wt_mask[c])
-                    imsave(val_save_path + 'voca_map/%s_t_map_%s.png' % (image_name, c), t_map[c])
-                    imsave(val_save_path + 'voca_map/%s_peak_map_%s.png' % (image_name, c), suppression_mask[c])
-
             #threshold the peaks by t_map
             suppression_mask[suppression_mask < t_map] = 0
             suppression_mask[suppression_mask < 0.05] = 0
-            if args.vis:
-                for c in range(args.num_classes):
-                    imsave(val_save_path + 'voca_map/%s_final_map_%s.png' % (image_name, c), suppression_mask[c])
             np.save(val_save_path + 'pred_map/%s_final_map.npy' % image_name, suppression_mask)
             suppression_mask_all[image_name_all.index(image_name)] = suppression_mask
 
     true_positive, pred_num, gt_num, pair_distances = calc_f1(gt_map_all,
                                                               suppression_mask_all,
+                                                              args.num_classes,
                                                               r=6)
     # get the image and channel wise fscore
     precision = np.divide(true_positive, pred_num, out=np.zeros(true_positive.shape),
@@ -218,95 +188,6 @@ def main():
     print('Precision: ', precision_all)
     print('Recall: ', recall_all)
     print('Fscore: ', fscore_all)
-
-def non_max_suppression(points, disThresh):
-    # if there are no points, return an empty list
-    if len(points) == 0:
-        return np.asarray([]).reshape(-1,3)
-
-    if points.dtype.kind == 'i':
-        points = points.astype('float')
-    np.random.shuffle(points)
-
-    pick = []
-
-    x = points[:,1]
-    y = points[:,0]
-    score = points[:,2]
-
-    idxs = np.argsort(score)
-
-    while len(idxs) > 0:
-
-        last = len(idxs) - 1
-        i = idxs[last]
-        pick.append(i)
-
-        x_dis = x[idxs[:last]] -  x[i]
-        y_dis = y[idxs[:last]] -  y[i]
-
-        dis = (x_dis**2+y_dis**2)**0.5
-        idxs = np.delete(idxs, np.concatenate(([last],
-        	np.where(dis < disThresh)[0])))
-
-    return points[pick]
-
-def remove_non_assigned(pred_map, gt, r=6):
-    pair_distances = []
-    for c in range(args.num_classes):
-        for n in range(gt.shape[0]):
-            '''obtain the coords for pred and gt'''
-            gt_coords_tuple = np.where(gt[n,c] > 0)
-            gt_coords = np.asarray((gt_coords_tuple[0], gt_coords_tuple[1])).transpose()
-            pred_coords_tuple = np.where(pred_map[n,c] > 0)
-            pred_coords = np.asarray((pred_coords_tuple[0], pred_coords_tuple[1])).transpose()
-            pred_coords = torch.Tensor(pred_coords.reshape(-1,2))
-            gt_coords = torch.Tensor(gt_coords.reshape(-1,2))
-            '''calculate the distance matrix'''
-            m1 = pred_coords.shape[0]
-            m2 = gt_coords.shape[0]
-            d = pred_coords.shape[1]
-            x = pred_coords.unsqueeze(1).expand(m1, m2, d)
-            y = gt_coords.unsqueeze(0).expand(m1, m2, d)
-            pred_x_gt = torch.pow(torch.pow(x - y, 2).sum(2), .5).numpy()
-            '''assign pred to gt'''
-            pred_ind, gt_ind =  lsa(pred_x_gt) #assigned preds
-            '''delete the unassigned prediciton points from pred_map'''
-            removed_preds_coords = np.delete(pred_coords, pred_ind, axis=0).numpy()
-            pred_map[n, c, removed_preds_coords[:,0], removed_preds_coords[:,1]] = 0
-            '''delete the assigned but too far points from pred_map'''
-            too_far_points = pred_coords[pred_ind[pred_x_gt[pred_ind, gt_ind] > r]].numpy()
-            pred_map[n,c,too_far_points[:,0],too_far_points[:,1]] = 0
-            pair_distances += pred_x_gt[pred_ind, gt_ind].reshape(-1).tolist()
-    return pred_map, pair_distances
-
-
-def calc_f1(gt, pred_map, r=6, assign = True):
-    #gt_num, pred_num, all are of shape len(images) * num_classes
-    gt_num = gt.sum((-1,-2)).numpy()
-    tp = np.zeros((gt.shape[0], gt.shape[1]))
-    # calculate precise, recall and f1 score
-    gt_map = np.zeros(gt.shape)
-    for c in range(args.num_classes):
-        for n in range(gt.shape[0]):
-            points = np.asarray((np.where(gt[n,c]>0)[0], np.where(gt[n,c]>0)[1])).transpose()
-            for p in points:
-                y = p[0]
-                x = p[1]
-                y_disk, x_disk = np.ogrid[-y: gt.shape[-2] - y, -x: gt.shape[-1] - x]
-                disk_mask = y_disk ** 2 + x_disk ** 2 <= (args.r) ** 2
-                gt_map[n, c, disk_mask] = 1
-
-    pred_num = pred_map.sum((-2,-1))
-    if assign == True:
-        pred_map = np.minimum(pred_map,gt_map)
-        pred_map, pair_distances = remove_non_assigned(pred_map, gt, r)
-
-    result_map = gt_map * pred_map.numpy()
-    tp = result_map.sum((-2,-1))
-    if assign == True:
-        return tp, pred_num, gt_num, pair_distances
-    return tp, pred_num, gt_num
 
 if __name__ == '__main__':
     main()

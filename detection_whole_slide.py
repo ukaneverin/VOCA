@@ -1,22 +1,16 @@
 import numpy as np
-from imageio import imread,imsave
-import glob
 import os
-from models import * #models defined
+from models.res import VOCA_Res
 import torch
-from torch.autograd import Variable
 from torchvision import transforms
 import time
-from scipy.optimize import linear_sum_assignment as lsa
-from scipy.spatial.distance import cdist
 from Dataset_classes import LymphocytesTestImage
-from skimage.util import invert
-from skimage import img_as_ubyte
 import openslide
 from SlideTileExtractor import extract_tissue
 import math
 import argparse
-from pdb import set_trace
+from utils import non_max_suppression
+
 parser = argparse.ArgumentParser(description='VOCA testing')
 parser.add_argument('--dataset', default='lung_tt', type=str, help='lung_tt(which means til+tumor), lung_til, breast_til')
 parser.add_argument('--annotation', default='AR', type=str, help='this specifies where the annotations are')
@@ -57,22 +51,12 @@ def main():
 
     # get device and load best model for eval
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    if args.model == 'vgg':
-        model = cell_vgg_cls_reg('config2').to(device)
-    elif args.model == 'vggsplit':
-        model = cell_vgg_cls_reg_split('config2').to(device)
-    elif args.model == 'vggsub':
-        model = cell_vgg_cls_reg_sub('config2').to(device)
-    elif args.model == 'vggskip':
-        model = cell_vgg_cls_skip('config2').to(device)
-    elif args.model == 'res':
-        model = ResNet18().to(device)
-    elif args.model == 'dense':
-        model = DenseNet121().to(device)
+
+    model = VOCA_Res().to(device)
 
     model_directory = os.path.join(args.output_path, args.dataset, 'trained_models/')
-    model.load_state_dict(torch.load(model_directory+'%s_%s_r%s_lr%s_%s_cv%s.pth' %
-                                     (args.model, args.loss, args.r, args.lr, args.metric, cv)))
+    model.load_state_dict(torch.load(model_directory+'r%s_lr%s_%s_cv%s.pth' %
+                                     (args.r, args.lr, args.metric, cv)))
     model.eval()
 
     """
@@ -201,7 +185,7 @@ def main():
 
         #threshold the peaks by t_map
         suppression_mask[suppression_mask < t_map] = 0
-        #threshold minimum; avoid potential problems
+        #threshold baseline
         suppression_mask[suppression_mask < 0.05] = 0
 
         """
@@ -236,39 +220,6 @@ def main():
     til_level_file.close()
     til_file.close()
     tumor_file.close()
-
-
-def non_max_suppression(points, disThresh):
-    # if there are no points, return an empty list
-    if len(points) == 0:
-        return np.asarray([]).reshape(-1,3)
-
-    if points.dtype.kind == 'i':
-        points = points.astype('float')
-    np.random.shuffle(points)
-
-    pick = []
-
-    x = points[:,1]
-    y = points[:,0]
-    score = points[:,2]
-
-    idxs = np.argsort(score)
-
-    while len(idxs) > 0:
-
-        last = len(idxs) - 1
-        i = idxs[last]
-        pick.append(i)
-
-        x_dis = x[idxs[:last]] -  x[i]
-        y_dis = y[idxs[:last]] -  y[i]
-
-        dis = (x_dis**2+y_dis**2)**0.5
-        idxs = np.delete(idxs, np.concatenate(([last],
-        	np.where(dis < disThresh)[0])))
-
-    return points[pick]
 
 if __name__ == '__main__':
     main()
