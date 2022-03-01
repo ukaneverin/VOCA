@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 class BasicBlock(nn.Module):
     expansion = 1
 
@@ -24,16 +25,16 @@ class BasicBlock(nn.Module):
         self.bn2 = nn.BatchNorm2d(planes)
 
         self.shortcut = nn.Sequential()
-        if stride != 1 or in_planes != self.expansion*planes:
+        if stride != 1 or in_planes != self.expansion * planes:
             if encoding_stage:
                 self.shortcut = nn.Sequential(
-                    nn.Conv2d(in_planes, self.expansion*planes, kernel_size=3, stride=stride, bias=False),
-                    nn.BatchNorm2d(self.expansion*planes)
+                    nn.Conv2d(in_planes, self.expansion * planes, kernel_size=3, stride=stride, bias=False),
+                    nn.BatchNorm2d(self.expansion * planes)
                 )
             else:
                 self.shortcut = nn.Sequential(
-                    nn.ConvTranspose2d(in_planes, self.expansion*planes, kernel_size=3, stride=stride, bias=False),
-                    nn.BatchNorm2d(self.expansion*planes)
+                    nn.ConvTranspose2d(in_planes, self.expansion * planes, kernel_size=3, stride=stride, bias=False),
+                    nn.BatchNorm2d(self.expansion * planes)
                 )
 
     def forward(self, x):
@@ -59,20 +60,20 @@ class Bottleneck(nn.Module):
         else:
             self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(planes)
-        self.conv3 = nn.Conv2d(planes, self.expansion*planes, kernel_size=1, bias=False)
-        self.bn3 = nn.BatchNorm2d(self.expansion*planes)
+        self.conv3 = nn.Conv2d(planes, self.expansion * planes, kernel_size=1, bias=False)
+        self.bn3 = nn.BatchNorm2d(self.expansion * planes)
 
         self.shortcut = nn.Sequential()
-        if stride != 1 or in_planes != self.expansion*planes:
+        if stride != 1 or in_planes != self.expansion * planes:
             if encoding_stage:
                 self.shortcut = nn.Sequential(
-                    nn.Conv2d(in_planes, self.expansion*planes, kernel_size=3, stride=stride, bias=False),
-                    nn.BatchNorm2d(self.expansion*planes)
+                    nn.Conv2d(in_planes, self.expansion * planes, kernel_size=3, stride=stride, bias=False),
+                    nn.BatchNorm2d(self.expansion * planes)
                 )
             else:
                 self.shortcut = nn.Sequential(
-                    nn.ConvTranspose2d(in_planes, self.expansion*planes, kernel_size=3, stride=stride, bias=False),
-                    nn.BatchNorm2d(self.expansion*planes)
+                    nn.ConvTranspose2d(in_planes, self.expansion * planes, kernel_size=3, stride=stride, bias=False),
+                    nn.BatchNorm2d(self.expansion * planes)
                 )
 
     def forward(self, x):
@@ -103,19 +104,20 @@ class ResNet(nn.Module):
         self.layer8 = self._make_layer(block, 64, num_blocks[7], stride=2, encoding_stage=False)
 
         self.classifier = nn.Sequential(
-            nn.Conv2d(64*block.expansion, num_classes, kernel_size=1),
+            nn.Conv2d(64 * block.expansion, num_classes, kernel_size=1),
             nn.Sigmoid()
         )
-        self.regressor = nn.Conv2d(64*block.expansion, 2*num_classes, kernel_size=1)
+        self.regressor = nn.Conv2d(64 * block.expansion, 2 * num_classes, kernel_size=1)
         self.quantifier = nn.Sequential(
-            nn.Conv2d(64*block.expansion, num_classes, kernel_size=1),
+            nn.Conv2d(64 * block.expansion, num_classes, kernel_size=1),
             nn.ReLU()
         )
 
         self.avg_pool = nn.AdaptiveAvgPool2d((1, 1))
-        self.thresholder = nn.Linear(512+64, num_classes)
+        self.thresholder = nn.Linear(512 + 64, num_classes)
+
     def _make_layer(self, block, planes, num_blocks, stride, encoding_stage):
-        strides = [stride] + [1]*(num_blocks-1)
+        strides = [stride] + [1] * (num_blocks - 1)
         layers = []
         for stride in strides:
             layers.append(block(self.in_planes, planes, stride, encoding_stage))
@@ -140,11 +142,10 @@ class ResNet(nn.Module):
         reg_map = self.regressor(out)
         qtf_map = self.quantifier(out)
 
-        t = self.thresholder(torch.cat((h1,h2),1).view(h1.size(0),-1))
+        t = self.thresholder(torch.cat((h1, h2), 1).view(h1.size(0), -1))
 
-        return cls_map, reg_map, qtf_map, t
+        return cls_map, reg_map, qtf_map, t, out
 
 
-def VOCA_Res():
-    return ResNet(BasicBlock, [3,4,6,3,3,6,4,3])
-
+def VOCA_Res(num_classes):
+    return ResNet(BasicBlock, [3, 4, 6, 3, 3, 6, 4, 3], num_classes)

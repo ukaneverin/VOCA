@@ -1,0 +1,35 @@
+Sender: LSF System <lsfadmin@lt01>
+Subject: Job 4519707: <python thyroid.py --subsample 0.5 --n_epochs 16 --cv 0 --stage roi_inference> in cluster <lila> Done
+
+Job <python thyroid.py --subsample 0.5 --n_epochs 16 --cv 0 --stage roi_inference> was submitted from host <flame> by user <xiec> in cluster <lila> at Sun Jan  2 16:56:05 2022
+Job was executed on host(s) <10*lt01>, in queue <gpuqueue>, as user <xiec> in cluster <lila> at Sun Jan  2 16:56:06 2022
+</home/xiec> was used as the home directory.
+</home/xiec/projects/VOCA> was used as the working directory.
+Started at Sun Jan  2 16:56:06 2022
+Terminated at Sun Jan  2 16:58:28 2022
+Results reported at Sun Jan  2 16:58:28 2022
+
+Your job looked like:
+
+------------------------------------------------------------
+# LSBATCH: User input
+python thyroid.py --subsample 0.5 --n_epochs 16 --cv 0 --stage roi_inference
+------------------------------------------------------------
+
+Successfully completed.
+
+Resource usage summary:
+
+    CPU time :                                   241.00 sec.
+    Max Memory :                                 2 GB
+    Average Memory :                             1.55 GB
+    Total Requested Memory :                     80.00 GB
+    Delta Memory :                               78.00 GB
+    Max Swap :                                   -
+    Max Processes :                              9
+    Max Threads :                                32
+    Run time :                                   144 sec.
+    Turnaround time :                            143 sec.
+
+The output (if any) follows:
+

@@ -29,10 +29,10 @@ parser.add_argument('--metric', default='f1', type=str,
                     help='acc, f1; this tells whether to compute the \
                     f1 score for every batch and save best model based on which metric')
 parser.add_argument('--nms_r', default=6, type=int, help='the distance threshold for non-max suppresion')
-parser.add_argument('--vis', action='store_true', help='if parsed, maps will be saved for visualization')
 parser.add_argument('--cv', default=0, type=int, help='choose the model trained with which cross validation')
 parser.add_argument('--id', default=557685, type=int, help='the slide id you want to run VOCA on')
 parser.add_argument('--use_bmp', action='store_true', help='if parsed, will only run voca on the annotated region')
+
 
 def main():
     global args
@@ -66,10 +66,14 @@ def main():
     if (args.dataset).split('_')[0] == 'lung':
         slide_path_1 = '/lila/data/fuchs/projects/lung/impacted/%s.svs' % args.id  # the name of the file
         slide_path_2 = '/lila/data/fuchs/projects/lung/de-identified_slides_from_luke_2_15_19/%s.svs' % args.id
+        slide_path_3 = '/lila/data/fuchs/projects/lung/IO_test/%s.svs' % args.id
         try:
             slide = openslide.OpenSlide(slide_path_1)
         except:
-            slide = openslide.OpenSlide(slide_path_2)
+            try:
+                slide = openslide.OpenSlide(slide_path_2)
+            except:
+                slide = openslide.OpenSlide(slide_path_3)
     elif (args.dataset).split('_')[0] == 'breast':
         slide_path = '/lila/data/fuchs/projects/breast-infiltration/svs/%s.svs' % args.id
         slide = openslide.OpenSlide(slide_path)
@@ -102,13 +106,18 @@ def main():
                                           overlap=1, bmp=bmp_file,
                                           oversample=False)
 
-    level, _ = extract_tissue.find_level(slide, 0.5, patchsize=args.patch_size)
+    level, mult = extract_tissue.find_level(slide, 0.5, patchsize=args.patch_size)
 
     tile_number = 0
     til_count = 0
     for ws_coords in truegrid:
         since = time.time()
-        image = slide.read_region(ws_coords, level, (args.patch_size, args.patch_size))
+        if mult != 1.0:
+            #mostly happens with GT450 slides
+            image = slide.read_region(ws_coords, level, (np.int(np.round(args.patch_size * mult)), np.int(np.round(args.patch_size * mult))))
+            image = image.resize((args.patch_size, args.patch_size))
+        else:
+            image = slide.read_region(ws_coords, level, (args.patch_size, args.patch_size))
         image = np.array(image)
         image = image[:, :, :3]
         image = image.astype(float)
@@ -145,8 +154,10 @@ def main():
                     valid_location_index = (x > 0) * (x < voca_map_batch.shape[-1]) * (y > 0) * (y < voca_map_batch.shape[-2])
                     x = x[valid_location_index]
                     y = y[valid_location_index]
+                    x_coord = x_coord_matrix.reshape(-1)[valid_location_index]
+                    y_coord = y_coord_matrix.reshape(-1)[valid_location_index]
                     # voca_map[n, c, y, x] += weighted_confidence_map[n, c, y, x].detach().cpu().numpy()
-                    np.add.at(voca_map_batch[n, c], (y, x), weighted_confidence_map[n, c, y, x].detach().cpu().numpy())
+                    np.add.at(voca_map_batch[n, c], (y, x), weighted_confidence_map[n, c, y_coord, x_coord].detach().cpu().numpy())
 
             # nms on the map
             suppression_mask_batch = torch.zeros(voca_map_batch.shape)
