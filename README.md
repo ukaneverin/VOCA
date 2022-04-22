@@ -1,6 +1,8 @@
 # VOCA
 This repository provides implementation for the article *VOCA: cell nuclei detection in histopathology images by vector oriented confidence accumulation* by **Xie et al. 2019**.
 
+![](VOCA.gif)
+
 ## Guideline
 `thyroid.py` is an example script for running the data processing, training, validation and cell nuclei dection on regions of interest (ROI) and whole slide images (WSI).
 
