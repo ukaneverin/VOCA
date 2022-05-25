@@ -31,7 +31,7 @@ class VocaData(ABC):
         self.num_classes = args.num_classes
         self.r = args.r
         self.cell_type_dict = cell_type_dict
-        self.subsample = arg.subsample
+        self.subsample = args.subsample
 
         self.status = {}
         self.check_status()
