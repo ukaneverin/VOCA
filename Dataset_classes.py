@@ -31,6 +31,7 @@ class VocaData(ABC):
         self.num_classes = args.num_classes
         self.r = args.r
         self.cell_type_dict = cell_type_dict
+        self.subsample = arg.subsample
 
         self.status = {}
         self.check_status()
@@ -207,7 +208,7 @@ class VocaData(ABC):
             std = torch.FloatTensor(np.load(os.path.join(self.library_path, 'CV_%s_std.npy' % cv)))
             sample_sizes = torch.FloatTensor(np.load(os.path.join(self.library_path, 'CV_%s_samplesizes_r%s.npy' % (cv, self.r))))
         except:
-            mean, std, sample_sizes = get_mean_and_std(128 * 8, TrainImagesDataset('train', ToTensor(), cv, **self.__dict__), self.num_classes)
+            mean, std, sample_sizes = get_mean_and_std(128 * 8, TrainImagesDataset('train', ToTensor(), cv, self.subsample, **self.__dict__), self.num_classes)
             np.save(os.path.join(self.library_path, 'CV_%s_mean.npy' % cv), mean)
             np.save(os.path.join(self.library_path, 'CV_%s_std.npy' % cv), std)
             np.save(os.path.join(self.library_path, 'CV_%s_samplesizes_r%s.npy' % (cv, self.r)), sample_sizes)
